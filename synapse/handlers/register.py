@@ -28,6 +28,9 @@ from synapse.util.async import run_on_reactor
 from synapse.util.threepids import check_3pid_allowed
 from ._base import BaseHandler
 
+from synapse.util.urlbuilder import urlbuilder
+from synapse.types import create_requester
+
 logger = logging.getLogger(__name__)
 
 
@@ -204,6 +207,18 @@ class RegistrationHandler(BaseHandler):
         # We used to generate default identicons here, but nowadays
         # we want clients to generate their own as part of their branding
         # rather than there being consistent matrix-wide ones, so we don't.
+
+        # And, as we ponyfie everythign we add here random ponymotes as defautl avatars
+        try:
+            content_uri = urlbuilder("mxc://ponies.im/bpm.^e")
+            user = UserID.from_string(user_id)
+            requester = create_requester(user)
+            self.profile_handler.set_avatar_url(
+                user, requester, content_uri
+            )
+        except NotImplementedError:
+            # something went wrong
+            pass
 
         defer.returnValue((user_id, token))
 
