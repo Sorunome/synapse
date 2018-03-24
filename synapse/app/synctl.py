@@ -74,7 +74,7 @@ def start(configfile):
 
 def start_worker(app, configfile, worker_configfile):
     args = [
-        "python", "-B",
+        "python2", "-B",
         "-m", app,
         "-c", configfile,
         "-c", worker_configfile
