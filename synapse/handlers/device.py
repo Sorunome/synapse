@@ -84,7 +84,7 @@ class DeviceHandler(BaseHandler):
         # times in case of a clash.
         attempts = 0
         while attempts < 5:
-            device_id = urlbuilder("^p's ^A")
+            device_id = urlbuilder("^P's ^A")
             new_device = yield self.store.store_device(
                 user_id=user_id,
                 device_id=device_id,

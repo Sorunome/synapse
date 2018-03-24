@@ -126,8 +126,7 @@ class RoomCreationHandler(BaseHandler):
         room_id = None
         while attempts < 5:
             try:
-                random_string = urlbuilder("^P ^v ^P")
-                random_string = random_string.replace(" ", "_")
+                random_string = urlbuilder("^P ^v ^P").replace(" ", "_")
                 gen_room_id = RoomID(
                     random_string,
                     self.hs.hostname,
