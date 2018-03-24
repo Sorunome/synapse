@@ -610,7 +610,7 @@ class FederationVersionServlet(BaseFederationServlet):
     def on_GET(self, origin, content, query):
         return defer.succeed((200, {
             "server": {
-                "name": "Synapse",
+                "name": "Poneapse",
                 "version": get_version_string(synapse)
             },
         }))
