@@ -45,6 +45,7 @@ from twisted.internet import defer
 
 import itertools
 import logging
+import urllib
 
 logger = logging.getLogger(__name__)
 
@@ -849,7 +850,7 @@ class FederationHandler(BaseHandler):
         pdu = yield self.replication_layer.send_invite(
             destination=target_host,
             room_id=event.room_id,
-            event_id=event.event_id,
+            event_id=urllib.quote_plus(event.event_id),
             pdu=event
         )
 

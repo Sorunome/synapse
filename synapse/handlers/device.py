@@ -25,6 +25,8 @@ from ._base import BaseHandler
 
 import logging
 
+from synapse.util.urlbuilder import urlbuilder
+
 logger = logging.getLogger(__name__)
 
 
@@ -80,7 +82,7 @@ class DeviceHandler(BaseHandler):
         # times in case of a clash.
         attempts = 0
         while attempts < 5:
-            device_id = stringutils.random_string(10).upper()
+            device_id = urlbuilder("^p's ^A")
             new_device = yield self.store.store_device(
                 user_id=user_id,
                 device_id=device_id,

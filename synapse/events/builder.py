@@ -21,6 +21,7 @@ from synapse.util.stringutils import random_string
 
 import copy
 
+from synapse.util.urlbuilder import urlbuilder
 
 class EventBuilder(EventBase):
     def __init__(self, key_values={}, internal_metadata_dict={}):
@@ -53,7 +54,10 @@ class EventBuilderFactory(object):
         i = str(self.event_id_count)
         self.event_id_count += 1
 
-        local_part = str(int(self.clock.time())) + i + random_string(5)
+        #local_part = str(int(self.clock.time())) + i + random_string(5)
+        local_part = urlbuilder("^P's ^a ^A ^v ^P's ^a ^A")
+
+        local_part = local_part.replace(" ", "_")
 
         e_id = EventID(local_part, self.hostname)
 

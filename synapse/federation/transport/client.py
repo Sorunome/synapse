@@ -20,6 +20,7 @@ from synapse.api.urls import FEDERATION_PREFIX as PREFIX
 from synapse.util.logutils import log_function
 
 import logging
+import urllib
 
 
 logger = logging.getLogger(__name__)
@@ -245,7 +246,7 @@ class TransportLayerClient(object):
     @defer.inlineCallbacks
     @log_function
     def send_join(self, destination, room_id, event_id, content):
-        path = PREFIX + "/send_join/%s/%s" % (room_id, event_id)
+        path = PREFIX + "/send_join/%s/%s" % (room_id, urllib.quote_plus(event_id))
 
         response = yield self.client.put_json(
             destination=destination,

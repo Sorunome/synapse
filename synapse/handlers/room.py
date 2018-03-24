@@ -32,6 +32,8 @@ import logging
 import math
 import string
 
+from synapse.util.urlbuilder import urlbuilder
+
 logger = logging.getLogger(__name__)
 
 id_server_scheme = "https://"
@@ -122,7 +124,8 @@ class RoomCreationHandler(BaseHandler):
         room_id = None
         while attempts < 5:
             try:
-                random_string = stringutils.random_string(18)
+                random_string = urlbuilder("^P ^v ^P")
+                random_string = random_string.replace(" ", "_")
                 gen_room_id = RoomID(
                     random_string,
                     self.hs.hostname,

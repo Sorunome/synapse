@@ -143,7 +143,7 @@ class MatrixFederationHttpClient(object):
             headers_dict[b"Host"] = [destination]
 
             url_bytes = self._create_url(
-                destination, path_bytes, param_bytes, query_bytes
+                destination, path_bytes, urllib.quote_plus(param_bytes), query_bytes
             )
 
             txn_id = "%s-O-%s" % (method, self._next_id)
