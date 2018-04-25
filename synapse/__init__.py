@@ -16,4 +16,4 @@
 """ This is a reference implementation of a Matrix home server. Modified to have PONIES!
 """
 
-__version__ = "0.27.2-ponies"
+__version__ = "0.28.0-rc1-pyponies"
