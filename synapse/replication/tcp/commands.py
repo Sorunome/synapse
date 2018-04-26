@@ -24,7 +24,7 @@ import json
 
 logger = logging.getLogger(__name__)
 
-_json_encoder = simplejson.JSONEncoder()
+_json_encoder = json.JSONEncoder()
 
 
 class Command(object):
