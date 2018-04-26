@@ -106,7 +106,7 @@ class RdataCommand(Command):
         return " ".join((
             self.stream_name,
             str(self.token) if self.token is not None else "batch",
-            json.encode(self.row),
+            json.dumps(self.row),
         ))
 
 
@@ -301,7 +301,7 @@ class InvalidateCacheCommand(Command):
 
     def to_line(self):
         return " ".join((
-            self.cache_func, json.encode(self.keys),
+            self.cache_func, json.dumps(self.keys),
         ))
 
 
@@ -333,7 +333,7 @@ class UserIpCommand(Command):
         )
 
     def to_line(self):
-        return self.user_id + " " + json.encode((
+        return self.user_id + " " + json.dumps((
             self.access_token, self.ip, self.user_agent, self.device_id,
             self.last_seen,
         ))
