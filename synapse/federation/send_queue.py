@@ -35,7 +35,7 @@ from synapse.storage.presence import UserPresenceState
 from synapse.util.metrics import Measure
 import synapse.metrics
 
-from blist import sorteddict
+from sortedcollections import SortedDict as sorteddict
 from collections import namedtuple
 
 import logging

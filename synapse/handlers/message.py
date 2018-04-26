@@ -37,7 +37,7 @@ from ._base import BaseHandler
 from canonicaljson import encode_canonical_json
 
 import logging
-import simplejson
+import json
 
 logger = logging.getLogger(__name__)
 
@@ -695,7 +695,7 @@ class EventCreationHandler(object):
         # Ensure that we can round trip before trying to persist in db
         try:
             dump = frozendict_json_encoder.encode(event.content)
-            simplejson.loads(dump)
+            json.loads(dump)
         except Exception:
             logger.exception("Failed to encode content: %r", event.content)
             raise

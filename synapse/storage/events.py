@@ -19,7 +19,7 @@ from functools import wraps
 import itertools
 import logging
 
-import simplejson as json
+import json as json
 from twisted.internet import defer
 
 

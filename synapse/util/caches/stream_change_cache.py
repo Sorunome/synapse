@@ -16,7 +16,7 @@
 from synapse.util.caches import register_cache, CACHE_SIZE_FACTOR
 
 
-from blist import sorteddict
+from sortedcollections import SortedDict as sorteddict
 import logging
 
 

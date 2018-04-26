@@ -20,6 +20,8 @@ from .sqlite3 import Sqlite3Engine
 import importlib
 import platform
 
+from psycopg2cffi import compat
+compat.register()
 
 SUPPORTED_MODULE = {
     "sqlite3": Sqlite3Engine,
