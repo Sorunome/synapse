@@ -27,6 +27,7 @@ from ._base import BaseHandler
 import logging
 
 from synapse.util.urlbuilder import urlbuilder
+from six import itervalues, iteritems
 
 logger = logging.getLogger(__name__)
 
@@ -114,7 +115,7 @@ class DeviceHandler(BaseHandler):
             user_id, device_id=None
         )
 
-        devices = device_map.values()
+        devices = list(device_map.values())
         for device in devices:
             _update_device_from_client_ips(device, ips)
 
@@ -187,7 +188,7 @@ class DeviceHandler(BaseHandler):
             defer.Deferred:
         """
         device_map = yield self.store.get_devices_by_user(user_id)
-        device_ids = device_map.keys()
+        device_ids = list(device_map)
         if except_device_id is not None:
             device_ids = [d for d in device_ids if d != except_device_id]
         yield self.delete_devices(user_id, device_ids)
@@ -320,7 +321,7 @@ class DeviceHandler(BaseHandler):
             # The user may have left the room
             # TODO: Check if they actually did or if we were just invited.
             if room_id not in room_ids:
-                for key, event_id in current_state_ids.iteritems():
+                for key, event_id in iteritems(current_state_ids):
                     etype, state_key = key
                     if etype != EventTypes.Member:
                         continue
@@ -340,7 +341,7 @@ class DeviceHandler(BaseHandler):
             # special-case for an empty prev state: include all members
             # in the changed list
             if not event_ids:
-                for key, event_id in current_state_ids.iteritems():
+                for key, event_id in iteritems(current_state_ids):
                     etype, state_key = key
                     if etype != EventTypes.Member:
                         continue
@@ -356,10 +357,10 @@ class DeviceHandler(BaseHandler):
 
             # Check if we've joined the room? If so we just blindly add all the users to
             # the "possibly changed" users.
-            for state_dict in prev_state_ids.itervalues():
+            for state_dict in itervalues(prev_state_ids):
                 member_event = state_dict.get((EventTypes.Member, user_id), None)
                 if not member_event or member_event != current_member_id:
-                    for key, event_id in current_state_ids.iteritems():
+                    for key, event_id in iteritems(current_state_ids):
                         etype, state_key = key
                         if etype != EventTypes.Member:
                             continue
@@ -369,14 +370,14 @@ class DeviceHandler(BaseHandler):
             # If there has been any change in membership, include them in the
             # possibly changed list. We'll check if they are joined below,
             # and we're not toooo worried about spuriously adding users.
-            for key, event_id in current_state_ids.iteritems():
+            for key, event_id in iteritems(current_state_ids):
                 etype, state_key = key
                 if etype != EventTypes.Member:
                     continue
 
                 # check if this member has changed since any of the extremities
                 # at the stream_ordering, and add them to the list if so.
-                for state_dict in prev_state_ids.itervalues():
+                for state_dict in itervalues(prev_state_ids):
                     prev_event_id = state_dict.get(key, None)
                     if not prev_event_id or prev_event_id != event_id:
                         if state_key != user_id:

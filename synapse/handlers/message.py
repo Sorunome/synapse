@@ -19,11 +19,17 @@ import sys
 
 from canonicaljson import encode_canonical_json
 import six
+from six import string_types, itervalues, iteritems
 from twisted.internet import defer, reactor
+from twisted.internet.defer import succeed
 from twisted.python.failure import Failure
 
 from synapse.api.constants import EventTypes, Membership, MAX_DEPTH
-from synapse.api.errors import AuthError, Codes, SynapseError
+from synapse.api.errors import (
+    AuthError, Codes, SynapseError,
+    ConsentNotGivenError,
+)
+from synapse.api.urls import ConsentURIBuilder
 from synapse.crypto.event_signing import add_hashes_and_signatures
 from synapse.events.utils import serialize_event
 from synapse.events.validator import EventValidator
@@ -86,14 +92,14 @@ class MessageHandler(BaseHandler):
         # map from purge id to PurgeStatus
         self._purges_by_id = {}
 
-    def start_purge_history(self, room_id, topological_ordering,
+    def start_purge_history(self, room_id, token,
                             delete_local_events=False):
         """Start off a history purge on a room.
 
         Args:
             room_id (str): The room to purge from
 
-            topological_ordering (int): minimum topo ordering to preserve
+            token (str): topological token to delete events before
             delete_local_events (bool): True to delete local events as well as
                 remote ones
 
@@ -115,19 +121,19 @@ class MessageHandler(BaseHandler):
         self._purges_by_id[purge_id] = PurgeStatus()
         run_in_background(
             self._purge_history,
-            purge_id, room_id, topological_ordering, delete_local_events,
+            purge_id, room_id, token, delete_local_events,
         )
         return purge_id
 
     @defer.inlineCallbacks
-    def _purge_history(self, purge_id, room_id, topological_ordering,
+    def _purge_history(self, purge_id, room_id, token,
                        delete_local_events):
         """Carry out a history purge on a room.
 
         Args:
             purge_id (str): The id for this purge
             room_id (str): The room to purge from
-            topological_ordering (int): minimum topo ordering to preserve
+            token (str): topological token to delete events before
             delete_local_events (bool): True to delete local events as well as
                 remote ones
 
@@ -138,7 +144,7 @@ class MessageHandler(BaseHandler):
         try:
             with (yield self.pagination_lock.write(room_id)):
                 yield self.store.purge_history(
-                    room_id, topological_ordering, delete_local_events,
+                    room_id, token, delete_local_events,
                 )
             logger.info("[purge] complete")
             self._purges_by_id[purge_id].status = PurgeStatus.STATUS_COMPLETE
@@ -397,7 +403,7 @@ class MessageHandler(BaseHandler):
                 "avatar_url": profile.avatar_url,
                 "display_name": profile.display_name,
             }
-            for user_id, profile in users_with_profile.iteritems()
+            for user_id, profile in iteritems(users_with_profile)
         })
 
 
@@ -430,6 +436,9 @@ class EventCreationHandler(object):
         self.action_generator = hs.get_action_generator()
 
         self.spam_checker = hs.get_spam_checker()
+
+        if self.config.block_events_without_consent_error is not None:
+            self._consent_uri_builder = ConsentURIBuilder(self.config)
 
     @defer.inlineCallbacks
     def create_event(self, requester, event_dict, token_id=None, txn_id=None,
@@ -482,6 +491,10 @@ class EventCreationHandler(object):
                         target, e
                     )
 
+        is_exempt = yield self._is_exempt_from_privacy_policy(builder)
+        if not is_exempt:
+            yield self.assert_accepted_privacy_policy(requester)
+
         if token_id is not None:
             builder.internal_metadata.token_id = token_id
 
@@ -495,6 +508,86 @@ class EventCreationHandler(object):
         )
 
         defer.returnValue((event, context))
+
+    def _is_exempt_from_privacy_policy(self, builder):
+        """"Determine if an event to be sent is exempt from having to consent
+        to the privacy policy
+
+        Args:
+            builder (synapse.events.builder.EventBuilder): event being created
+
+        Returns:
+            Deferred[bool]: true if the event can be sent without the user
+                consenting
+        """
+        # the only thing the user can do is join the server notices room.
+        if builder.type == EventTypes.Member:
+            membership = builder.content.get("membership", None)
+            if membership == Membership.JOIN:
+                return self._is_server_notices_room(builder.room_id)
+        return succeed(False)
+
+    @defer.inlineCallbacks
+    def _is_server_notices_room(self, room_id):
+        if self.config.server_notices_mxid is None:
+            defer.returnValue(False)
+        user_ids = yield self.store.get_users_in_room(room_id)
+        defer.returnValue(self.config.server_notices_mxid in user_ids)
+
+    @defer.inlineCallbacks
+    def assert_accepted_privacy_policy(self, requester):
+        """Check if a user has accepted the privacy policy
+
+        Called when the given user is about to do something that requires
+        privacy consent. We see if the user is exempt and otherwise check that
+        they have given consent. If they have not, a ConsentNotGiven error is
+        raised.
+
+        Args:
+            requester (synapse.types.Requester):
+                The user making the request
+
+        Returns:
+            Deferred[None]: returns normally if the user has consented or is
+                exempt
+
+        Raises:
+            ConsentNotGivenError: if the user has not given consent yet
+        """
+        if self.config.block_events_without_consent_error is None:
+            return
+
+        # exempt AS users from needing consent
+        if requester.app_service is not None:
+            return
+
+        user_id = requester.user.to_string()
+
+        # exempt the system notices user
+        if (
+            self.config.server_notices_mxid is not None and
+            user_id == self.config.server_notices_mxid
+        ):
+            return
+
+        u = yield self.store.get_user_by_id(user_id)
+        assert u is not None
+        if u["appservice_id"] is not None:
+            # users registered by an appservice are exempt
+            return
+        if u["consent_version"] == self.config.user_consent_version:
+            return
+
+        consent_uri = self._consent_uri_builder.build_user_consent_uri(
+            requester.user.localpart,
+        )
+        msg = self.config.block_events_without_consent_error % {
+            'consent_uri': consent_uri,
+        }
+        raise ConsentNotGivenError(
+            msg=msg,
+            consent_uri=consent_uri,
+        )
 
     @defer.inlineCallbacks
     def send_nonmember_event(self, requester, event, context, ratelimit=True):
@@ -578,7 +671,7 @@ class EventCreationHandler(object):
 
             spam_error = self.spam_checker.check_event_for_spam(event)
             if spam_error:
-                if not isinstance(spam_error, basestring):
+                if not isinstance(spam_error, string_types):
                     spam_error = "Spam is not permitted here"
                 raise SynapseError(
                     403, spam_error, Codes.FORBIDDEN
@@ -792,7 +885,7 @@ class EventCreationHandler(object):
 
                 state_to_include_ids = [
                     e_id
-                    for k, e_id in context.current_state_ids.iteritems()
+                    for k, e_id in iteritems(context.current_state_ids)
                     if k[0] in self.hs.config.room_invite_state_types
                     or k == (EventTypes.Member, event.sender)
                 ]
@@ -806,7 +899,7 @@ class EventCreationHandler(object):
                         "content": e.content,
                         "sender": e.sender,
                     }
-                    for e in state_to_include.itervalues()
+                    for e in itervalues(state_to_include)
                 ]
 
                 invitee = UserID.from_string(event.state_key)
