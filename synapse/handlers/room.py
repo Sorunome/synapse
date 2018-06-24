@@ -338,7 +338,7 @@ class RoomCreationHandler(BaseHandler):
         else:
             power_level_content = {
                 "users": {
-                    creator_id: 100,
+                    creator_id: 200,
                 },
                 "users_default": 0,
                 "events": {
